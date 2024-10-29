@@ -69,7 +69,7 @@ SELECT * FROM "athena_iceberg_db"."web_sales_iceberg$files"
 
 ![Create-iceberg-table](img/partitioned_by_year.png)
 
-You can confirm hidden partitioning is used at query time by running the following query
+Você pode confirmar que o particionamento oculto é usado no momento da consulta executando a seguinte consulta
 
 ``` sql
 SELECT COUNT(DISTINCT(ws_order_number)) AS num_orders
@@ -234,14 +234,14 @@ Você pode consultar a tabela `snapshots` e ver um novo snapshot com o valor `op
 
 ---
 
-## Optimizing Iceberg tables
+## Otimizando tabelas Iceberg
 
 À medida que os dados se acumulam em uma tabela Iceberg, as consultas gradualmente se tornam menos eficientes devido ao aumento do tempo de processamento necessário para abrir arquivos. Custo computacional adicional é incorrido se a tabela contiver arquivos de exclusão. No Iceberg, os arquivos de exclusão armazenam exclusões de nível de linha, e o mecanismo deve aplicar as linhas excluídas aos resultados da consulta. Para ajudar a otimizar o desempenho das consultas em tabelas Iceberg, o Athena oferece suporte à compactação manual como um comando de manutenção de tabela. As compactações otimizam o layout estrutural da tabela sem alterar o conteúdo da tabela. Para fazer isso, você pode usar a consulta [OPTIMIZE](https://docs.aws.amazon.com/athena/latest/ug/optimize-statement.html) do Athena que faz o seguinte:
 
 * compactar arquivos pequenos em maiores (reduzir a quantidade de arquivos a serem abertos durante a leitura)
 * mesclar arquivos de exclusão de posição com arquivos de dados (evitar ter que aplicar exclusões de posição ao consultar)
 
-1.  Observe os arquivos de dados do iceberg da tabela antes de começar a otimizá-la.
+10.  Observe os arquivos de dados do iceberg da tabela antes de começar a otimizá-la.
 
 ``` sql
 SELECT * FROM "athena_iceberg_db"."web_sales_iceberg$files";
@@ -295,21 +295,21 @@ Você pode especificar essas propriedades de tabela ao criar uma tabela. Exemplo
 
 ``` sql
 CREATE TABLE athena_iceberg_db.web_sales_iceberg (
-ws_order_number INT,
-ws_item_sk INT,
-ws_quantity INT,
-ws_sales_price DOUBLE,
-ws_warehouse_sk INT,
-ws_sales_time TIMESTAMP)
-PARTITIONED BY (year(ws_sales_time))
-LOCATION 's3://otfs-workshop-data-<your-account-id>/datasets/athena_iceberg/web_sales_iceberg'
-TBLPROPERTIES (
-'table_type'='iceberg',
-'format'='PARQUET',
-'write_compression'='ZSTD',
-'write_target_data_file_size_bytes'='346870912',
-'optimize_rewrite_delete_file_threshold'='16',
-'optimize_rewrite_data_file_threshold'='16'
+  ws_order_number INT,
+  ws_item_sk INT,
+  ws_quantity INT,
+  ws_sales_price DOUBLE,
+  ws_warehouse_sk INT,
+  ws_sales_time TIMESTAMP)
+  PARTITIONED BY (year(ws_sales_time))
+  LOCATION 's3://otfs-workshop-data-<your-account-id>/datasets/athena_iceberg/web_sales_iceberg'
+  TBLPROPERTIES (
+  'table_type'='iceberg',
+  'format'='PARQUET',
+  'write_compression'='ZSTD',
+  'write_target_data_file_size_bytes'='346870912',
+  'optimize_rewrite_delete_file_threshold'='16',
+  'optimize_rewrite_data_file_threshold'='16'
 );
 ```
 
