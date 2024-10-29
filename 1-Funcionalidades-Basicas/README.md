@@ -15,7 +15,7 @@ Observe que o Amazon Athena fornece suporte integrado para o Apache Iceberg, par
 
 ## Configurando o Athena
 
-1. Navegue até o console do Amazon Athena usando a barra de pesquisa.
+1. Navegue até o [console do Amazon Athena](https://us-east-1.console.aws.amazon.com/athena/home?region=us-east-1#/landing-page) usando a barra de pesquisa.
 
 ![athena_searchbar](img/athena_searchbar.png)
 
@@ -27,7 +27,7 @@ Observe que o Amazon Athena fornece suporte integrado para o Apache Iceberg, par
 
 ![athena_setup](img/athena_initial_setup.png)
 
-4. Configure `s3://otfs-workshop-data-<your-account-id>/athena_res/` como **Localização do resultado da consulta** e clique em **Salvar**. Substitua `<your-account-id>` pelo ID da conta atual.
+4. Configure `s3://otfs-workshop-data-<your-account-id>/athena_res/` como **Localização do resultado da consulta** e clique em **Salvar**. Substitua `<your-account-id>` pelo ID da conta atual. Isso garantirá que os resultados das consultas sejam armazenados em um local específico no Amazon S3.
 
 ![athena_reslocation_setup](img/athena_reslocation_setup.png)
 
@@ -70,7 +70,7 @@ TBLPROPERTIES (
 
 ---
 
-1. Você pode verificar se a nova tabela `customer_iceberg` foi criada no banco de dados. Não há dados na tabela no momento.
+2. Você pode verificar se a nova tabela `customer_iceberg` foi criada no banco de dados. Não há dados na tabela no momento.
 
 Você também pode selecionar o nome do banco de dados no menu suspenso no painel esquerdo para visualizar as tabelas dentro desse banco de dados.
 
@@ -82,7 +82,7 @@ SHOW TABLES IN athena_iceberg_db;
 
 ---
 
-1. You can check the schema and partition definition of the table with the DESCRIBE query. You can also select the table name on the left panel to view the table details.
+1. Você pode verificar o esquema e a definição de partição da tabela com a consulta DESCRIBE. Você também pode selecionar o nome da tabela no painel esquerdo para visualizar os detalhes da tabela.
 
 ``` sql
 DESCRIBE customer_iceberg;
@@ -92,7 +92,7 @@ DESCRIBE customer_iceberg;
 
 ---
 
-## Estrutura da mesa iceberg
+## Estrutura da tabela iceberg
 
 Aqui está um diagrama representando a estrutura da tabela subjacente do Iceberg:
 
@@ -104,9 +104,7 @@ Aqui está um diagrama representando a estrutura da tabela subjacente do Iceberg
 * Cada arquivo de lista de manifesto, entre outras informações, aponta para um ou muitos arquivos de manifesto.
 * Cada arquivo de manifesto aponta para um ou muitos arquivos de dados.
 
-
 ![Create-iceberg-table](img/iceberg_underlying_table_structure.png)
-
 
 As tabelas Athena Iceberg expõem vários metadados de tabela, como arquivos de tabela, manifestos, histórico, partição, snapshot por meio de tabelas de metadados. Nós os consultaremos em momentos diferentes como parte deste exercicio.
 
@@ -145,7 +143,7 @@ Você deverá ver a mensagem "Consulta bem-sucedida" nos resultados da consulta.
 
 1. Verifique se os dados estão carregados corretamente consultando a tabela. Copie a consulta abaixo no editor de consultas e clique em **Executar**
 
-```
+``` sql
 select * from athena_iceberg_db.customer_iceberg limit 10;
 ```
 
@@ -161,7 +159,7 @@ select count(*) from athena_iceberg_db.customer_iceberg;
 Você deve ver `20000 'nos resultados da consulta.
 
 
-9. Dentro do local da tabela do Amazon S3: `s3://otfs-workshop-data-<your-account-id>/datasets/athena_iceberg/customer_iceberg/` (`<your-account-id>` é o ID da sua conta atual), você verá duas pastas, **data** e **metadata**. A pasta **data** contém os dados reais no formato parquet e a pasta **metadata** contém vários arquivos de metadados.
+9. Dentro do local da tabela do [Amazon S3](https://us-east-1.console.aws.amazon.com/s3/home?region=us-east-1): `s3://otfs-workshop-data-<your-account-id>/datasets/athena_iceberg/customer_iceberg/` (`<your-account-id>` é o ID da sua conta atual), você verá duas pastas, **data** e **metadata**. A pasta **data** contém os dados reais no formato parquet e a pasta **metadata** contém vários arquivos de metadados.
 Existem três tipos de arquivos de metadados:
 
 * arquivo de metadados, terminando com `.metadata.json`
@@ -180,10 +178,7 @@ Pasta de dados:
 
 Agora vamos consultar os metadados da tabela Iceberg.
 
-
 * Execute a seguinte instrução para listar os arquivos da tabela Iceberg.
-
-
 
 ``` sql
 SELECT * FROM "athena_iceberg_db"."customer_iceberg$files"
@@ -222,13 +217,13 @@ Nos resultados da consulta, você verá `snapshot_id`, `parent_id`, `manifest_li
 
 ---
 
-## Update records
+## Atualizar registros
 
 Sua próxima tarefa é fazer uma limpeza de dados. Na seção a seguir, você se concentrará em um cliente específico que inseriu seu sobrenome e e-mail incorretamente. Como resultado, esses dois campos são `Null` e você tem a tarefa de corrigi-los.
 
 1. Copie a consulta abaixo no editor de consultas e clique em **Executar**.
 
-```
+``` sql
 select * from athena_iceberg_db.customer_iceberg
 WHERE c_customer_sk = 15
 ```
@@ -239,7 +234,8 @@ Observe que o sobrenome (`c_last_name`) e o endereço de e-mail (`c_email_addres
 
 ``` sql
 UPDATE athena_iceberg_db.customer_iceberg
-SET c_last_name = 'John', c_email_address = 'johnTonya@abx.com' WHERE c_customer_sk = 15
+SET c_last_name = 'John', c_email_address = 'johnTonya@abx.com' 
+WHERE c_customer_sk = 15
 ```
 
 A consulta deverá ser executada com sucesso e você verá a mensagem "Consulta bem-sucedida" nos resultados da consulta.
@@ -253,7 +249,7 @@ WHERE c_customer_sk = 15
 
 Observe que o sobrenome e o endereço de e-mail de Tonya foram atualizados agora.
 
-Athena usa `merge-on-read` para operações UPDATE.
+Athena usa [merge-on-read](https://docs.aws.amazon.com/pt_br/prescriptive-guidance/latest/apache-iceberg-on-aws/best-practices-write.html) para operações UPDATE.
 Isso significa que ele grava arquivos de exclusão de posição Iceberg e linhas recém-atualizadas como arquivos de dados na mesma transação.
 Arquivos de exclusão baseados em posição identificam linhas excluídas por arquivo e posição em um ou mais arquivos de dados.
 Em contraste com uma atualização **copy\-on\-write**, uma atualização merge\-on\-read é mais eficiente porque não reescreve arquivos de dados inteiros.
@@ -285,7 +281,7 @@ Arquivos de exclusão baseados em Position\ identificam linhas excluídas por ar
 Em contraste com uma exclusão **copy\-on\-write**, uma exclusão merge\-on\-read é mais eficiente porque não reescreve arquivos de dados inteiros.
 Quando lemos uma tabela Iceberg configurada com exclusões **merge\-on\-read**, o mecanismo mescla os arquivos de exclusão de posição Iceberg com arquivos de dados para produzir a visualização mais recente de uma tabela.
 
-1. Copy the query below into the query editor and click **Run**.
+1. Copie a consulta abaixo no editor de consultas e clique em **Executar**.
 
 ``` sql
 delete from athena_iceberg_db.customer_iceberg
@@ -324,9 +320,9 @@ order by made_current_at;
 
 ![iceberg-test-query](img/iceberg_table_history.png)
 
-* Row1 corresponde à operação de inserção inicial que realizamos para preencher a tabela. A coluna `snapshot_id` mostra o primeiro snapshot criado.
-* Row2 corresponde à operação de atualização que realizamos. A coluna `snapshot_id` mostra o segundo snapshot criado.
-* Row3 corresponde à operação de exclusão que realizamos. A coluna `snapshot_id` mostra o terceiro (mais recente) snapshot criado.
+* Linha 1 corresponde à operação de inserção inicial que realizamos para preencher a tabela. A coluna `snapshot_id` mostra o primeiro snapshot criado.
+* Linha 2 corresponde à operação de atualização que realizamos. A coluna `snapshot_id` mostra o segundo snapshot criado.
+* Linha 3 corresponde à operação de exclusão que realizamos. A coluna `snapshot_id` mostra o terceiro (mais recente) snapshot criado.
 
 17. Substitua `5418594889737463157` pelo `snapshot_id` da Linha 2 para consultar o estado da tabela correspondente ao segundo snapshot (antes da operação de exclusão ser executada).
 
@@ -340,7 +336,6 @@ No resultado da consulta, você deve ver o registro do cliente Tonya.
 
 18. Como alternativa, podemos usar a coluna `made_current_at` para consultar um instantâneo específico.
 
-
 Copie a consulta abaixo no editor de consultas, substitua `2024-03-03 07:45:10.651 UTC` na consulta pelo valor `made_current_at` da Linha 2 (ponto 16\) e clique em **Executar**.
 
 ``` sql
@@ -349,11 +344,11 @@ FOR TIMESTAMP AS OF TIMESTAMP '2024-04-16 17:21:49.771 UTC'
 WHERE c_customer_sk = 15
 ```
 
-In the query result you should see the record for customer Tonya.
+No resultado da consulta, você deve ver o registro do cliente Tonya.
 
 ---
 
-## Schema Evolution
+## Evolução do esquema
 
 As atualizações do esquema Iceberg são alterações somente de metadados. Nenhum arquivo de dados é alterado quando você executa uma atualização de esquema. O formato Iceberg suporta as seguintes alterações de evolução de esquema:
 
@@ -375,10 +370,11 @@ SELECT * FROM "athena_iceberg_db"."customer_iceberg$files"
 
 Anote o caminho e o nome do arquivo de dados.
 
-20. Now change a column name. You can use the following DDL command to change the `c_email_address` column name to `email`.
+20. Agora altere o nome de uma coluna. Você pode usar o seguinte comando DDL para alterar o nome da coluna `c_email_address` para `email`.
 
 ``` sql
-ALTER TABLE athena_iceberg_db.customer_iceberg change column c_email_address email STRING
+ALTER TABLE athena_iceberg_db.customer_iceberg 
+change column c_email_address email STRING
 ```
 
 A consulta deve ser executada sem nenhum erro.
