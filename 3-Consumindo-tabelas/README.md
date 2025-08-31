@@ -40,13 +40,13 @@ FROM customer_iceberg
 3. Usando [EXPLAIN e EXPLAIN ANALYZE](https://docs.aws.amazon.com/athena/latest/ug/athena-explain-statement.html) no Athena
 
 
-   1. The EXPLAIN statement shows the logical or distributed execution plan of a specified SQL statement, or validates the SQL statement. You can output the results in text format or in a data format for rendering into a graph.
+   1. A instrução EXPLAIN mostra o plano de execução lógico ou distribuído de uma instrução SQL especificada, ou valida a instrução SQL. Você pode gerar os resultados em formato de texto ou em um formato de dados para renderizar em um gráfico.
 
     ``` sql
     EXPLAIN SELECT count(*) FROM customer_iceberg LIMIT 10;
     ```
 
-   2. The EXPLAIN ANALYZE statement shows both the distributed execution plan of a specified SQL statement and the computational cost of each operation in a SQL query. You can output the results in text or JSON format.
+   2. A instrução EXPLAIN ANALYZE mostra tanto o plano de execução distribuído de uma instrução SQL especificada quanto o custo computacional de cada operação em uma consulta SQL. Você pode gerar os resultados em formato de texto ou JSON.
 
     ``` sql
     EXPLAIN ANALYZE
