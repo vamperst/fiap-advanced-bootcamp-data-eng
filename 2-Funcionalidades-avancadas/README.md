@@ -1,13 +1,61 @@
 
-Neste laboratório, você explorará funcionalidades avançadas do Apache Iceberg.
+# Laboratório: Funcionalidades Avançadas do Apache Iceberg
 
-Observe que o Amazon Athena fornece suporte integrado para o Apache Iceberg, para que você possa ler e gravar em tabelas Iceberg sem adicionar nenhuma dependência ou configuração adicional. Isso é válido para Iceberg [tabelas v2](https://iceberg.apache.org/spec/\#version\-2\-row\-level\-deletes) .
+## Introdução
+
+Neste laboratório, você explorará funcionalidades avançadas do Apache Iceberg que são essenciais para otimização de performance e operações complexas em ambientes de produção.
+
+### Pré-requisitos
+
+- Conclusão do laboratório de funcionalidades básicas
+- Compreensão dos conceitos fundamentais do Apache Iceberg
+- Conhecimento de particionamento de dados e otimização de consultas
+
+### Objetivos de Aprendizagem
+
+Ao final deste laboratório, você será capaz de:
+- Implementar particionamento oculto para otimização automática
+- Executar operações condicionais complexas com MERGE INTO
+- Aplicar técnicas de otimização para melhorar performance
+- Compreender estratégias de manutenção de tabelas Iceberg
+
+Para referência técnica detalhada, consulte a [documentação avançada do Iceberg no AWS](https://docs.aws.amazon.com/prescriptive-guidance/latest/apache-iceberg-on-aws/iceberg-athena.html).
+
+Observe que o Amazon Athena fornece suporte integrado para o Apache Iceberg, para que você possa ler e gravar em tabelas Iceberg sem adicionar nenhuma dependência ou configuração adicional. Isso é válido para Iceberg [tabelas v2](https://iceberg.apache.org/spec/#version-2-row-level-deletes).
 
 
 ## Principais pontos de aprendizagem:
 
-* Particionamento oculto Iceberg
-* Como atualizar, excluir ou inserir linhas condicionalmente (mesclar) em tabelas Iceberg
+* **Particionamento oculto Iceberg** - Otimização automática de consultas
+* **Operações condicionais (MERGE)** - Como atualizar, excluir ou inserir linhas condicionalmente em tabelas Iceberg
+* **Otimização de tabelas Iceberg** - Técnicas de manutenção e performance
+
+---
+
+## Particionamento Oculto
+
+### Conceitos Fundamentais
+
+O particionamento oculto do Iceberg representa uma evolução significativa em relação às abordagens tradicionais de particionamento, como o sistema Hive. Esta funcionalidade torna o particionamento declarativo e transparente para os usuários finais.
+
+**Diferenças entre abordagens**:
+
+| Aspecto | Particionamento Tradicional (Hive) | Particionamento Oculto (Iceberg) |
+|---------|-----------------------------------|----------------------------------|
+| **Definição** | Usuário especifica partições manualmente | Sistema deriva partições automaticamente |
+| **Consultas** | Requer filtros específicos de partição | Filtros automáticos baseados em dados |
+| **Manutenção** | Manual e propenso a erros | Automática e otimizada |
+| **Performance** | Depende do conhecimento do usuário | Otimizada pelo sistema |
+
+**Vantagens do particionamento oculto**:
+- Reduz erros humanos na especificação de partições
+- Otimização automática de consultas (partition pruning)
+- Transparência para aplicações consumidoras
+- Flexibilidade para mudanças futuras
+
+Para detalhes técnicos sobre particionamento, consulte a [documentação de particionamento do Iceberg](https://docs.aws.amazon.com/prescriptive-guidance/latest/apache-iceberg-on-aws/iceberg-partitioning.html) e a [especificação oficial](https://iceberg.apache.org/docs/latest/partitioning/).
+
+O particionamento oculto do Iceberg é uma melhoria em relação à abordagem do Hive que torna o particionamento declarativo. Ao criar uma tabela, você pode configurar como particioná-la usando uma construção chamada especificação de partição, como `day(event_ts)`. Essas expressões dizem ao Iceberg como derivar valores de partição no momento da gravação. No momento da leitura, o Iceberg usa os relacionamentos para converter automaticamente filtros de dados em filtros de partição.
 * Otimizando tabelas Iceberg
 
 ---
@@ -19,7 +67,16 @@ O ​​particionamento oculto do Iceberg é uma melhoria em relação à aborda
 
 O volume inicial de dados de vendas não é tão grande, portanto, você escolhe particionar os dados por ano de vendas usando a expressão `years(ws_sales_time)`.
 
-1. Crie a tabela Iceberg `web_sales_iceberg`. Copie a consulta abaixo no editor de consultas, substitua `<your-account-id>` pelo ID da conta atual e clique em **Executar** .
+**Estratégia de particionamento**: A escolha de particionar por ano é baseada nos padrões de consulta esperados. Partições muito granulares (por dia) podem criar muitos arquivos pequenos, enquanto partições muito amplas (por década) podem não oferecer benefícios de performance adequados.
+
+**Funções de particionamento disponíveis**:
+- `year(timestamp)` - Particiona por ano
+- `month(timestamp)` - Particiona por mês  
+- `day(timestamp)` - Particiona por dia
+- `hour(timestamp)` - Particiona por hora
+- `bucket(N, col)` - Distribui dados em N buckets
+
+1. Crie a tabela Iceberg `web_sales_iceberg`. Copie a consulta abaixo no editor de consultas, substitua `<your-account-id>` pelo ID da conta atual e clique em **Executar**.
 
 ``` sql
 CREATE TABLE athena_iceberg_db.web_sales_iceberg (
@@ -110,14 +167,30 @@ O particionamento oculto traz os seguintes benefícios:
 
 ## Atualizar, excluir ou inserir linhas condicionalmente em uma tabela Apache Iceberg
 
-Nesta seção, você aprenderá como atualizar, excluir ou inserir linhas condicionalmente em uma tabela do Apache Iceberg. [MERGE INTO](https://docs.aws.amazon.com/athena/latest/ug/merge-into-statement.html) é uma única instrução que pode combinar ações de atualização, exclusão e inserção.
+### Operações MERGE INTO - Transações Complexas
 
-Observação: [MERGE INTO](https://docs.aws.amazon.com/athena/latest/ug/merge-into-statement.html) é transacional e tem suporte apenas para tabelas Apache Iceberg no mecanismo Athena versão 3.
+Nesta seção, você aprenderá como executar operações condicionais complexas usando a instrução MERGE INTO. Esta funcionalidade permite combinar múltiplas operações DML (INSERT, UPDATE, DELETE) em uma única transação atômica.
+
+**Vantagens do MERGE INTO**:
+- **Atomicidade**: Todas as operações são executadas como uma única transação
+- **Eficiência**: Reduz o número de passadas pelos dados
+- **Flexibilidade**: Permite lógica condicional complexa
+- **Consistência**: Garante integridade dos dados durante operações complexas
+
+**Casos de uso comuns**:
+- Sincronização de dados entre sistemas (CDC - Change Data Capture)
+- Aplicação de atualizações em lote com diferentes tipos de operação
+- Implementação de padrões Slowly Changing Dimensions (SCD)
+- Processamento de dados de streaming com operações mistas
+
+Para mais detalhes sobre MERGE INTO, consulte a [documentação oficial do Athena](https://docs.aws.amazon.com/athena/latest/ug/merge-into-statement.html) e as [melhores práticas para operações DML](https://docs.aws.amazon.com/prescriptive-guidance/latest/apache-iceberg-on-aws/best-practices-write.html).
+
+**Observação importante**: [MERGE INTO](https://docs.aws.amazon.com/athena/latest/ug/merge-into-statement.html) é transacional e tem suporte apenas para tabelas Apache Iceberg no mecanismo Athena versão 3.
 
 Você criará a tabela `merge_table` e a usará para mesclar registros na tabela de destino `athena_iceberg_db.web_sales_iceberg`.
 
 
-1. Agora crie a tabela de mesclagem Iceberg: `merge_table`. Para criar a tabela, copie a consulta abaixo no editor de consultas, substitua `<your-account-id>` pelo ID da conta atual e clique em **Executar** .
+5. Agora crie a tabela de mesclagem Iceberg: `merge_table`. Para criar a tabela, copie a consulta abaixo no editor de consultas, substitua `<your-account-id>` pelo ID da conta atual e clique em **Executar**.
 
 ``` sql
 CREATE TABLE athena_iceberg_db.merge_table (
@@ -141,7 +214,14 @@ TBLPROPERTIES (
 
 6. Você tem a coluna `operation` na `merge_table`. Agora você adiciona registros dentro desta tabela e adiciona o valor da coluna `operation = 'U'` para identificar os registros a serem atualizados, `operation = 'I'` para identificar os registros a serem inseridos e `operation = 'D'` para identificar os registros a serem excluídos.
 
-   1. Insira linhas em `merge_table` com o sinalizador `operation = 'U'`. Copie a consulta abaixo no editor e clique em **Executar**
+**Padrão de controle de operações**: A coluna `operation` funciona como um flag que indica o tipo de operação a ser realizada para cada registro. Este é um padrão comum em sistemas de CDC (Change Data Capture) e ETL.
+
+**Significado dos códigos**:
+- **'U' (Update)**: Registros que devem ser atualizados na tabela de destino
+- **'I' (Insert)**: Novos registros que devem ser inseridos
+- **'D' (Delete)**: Registros que devem ser removidos da tabela de destino
+
+7. Insira linhas em `merge_table` com o sinalizador `operation = 'U'`. Copie a consulta abaixo no editor e clique em **Executar**
 
   ``` sql
   INSERT INTO athena_iceberg_db.merge_table
@@ -151,7 +231,7 @@ TBLPROPERTIES (
 
   Esta consulta atualiza todas as transações de vendas do armazém 10 no ano 2000 para o armazém 16.
 
-   2. Insira linhas em `merge_table` com o sinalizador `operation = 'I'`. Copie a consulta abaixo no editor e clique em **Executar**
+8. Insira linhas em `merge_table` com o sinalizador `operation = 'I'`. Copie a consulta abaixo no editor e clique em **Executar**
 
 
 
@@ -164,7 +244,7 @@ TBLPROPERTIES (
   Esta consulta representa inserções de transações de vendas no ano 2001.
 
 
-  3. Insira linhas em `merge_table` com o sinalizador `operation = 'D'`. Copie a consulta abaixo no editor e clique em **Executar**
+9. Insira linhas em `merge_table` com o sinalizador `operation = 'D'`. Copie a consulta abaixo no editor e clique em **Executar**
 
   ``` sql
   INSERT INTO athena_iceberg_db.merge_table
@@ -176,7 +256,7 @@ TBLPROPERTIES (
 
 ---
 
-7. Consulte a tabela `athena_iceberg_db.merge_table` e verifique se os registros estão sendo exibidos para `operation = 'U'`, `operation = 'I'` e `operation = 'D'`.
+10. Consulte a tabela `athena_iceberg_db.merge_table` e verifique se os registros estão sendo exibidos para `operation = 'U'`, `operation = 'I'` e `operation = 'D'`.
 
 ``` sql
 select operation, count(*) as num_records
@@ -186,7 +266,16 @@ group by operation
 
 ---
 
-8. Você aplica todas as alterações contidas dentro da `merge_table` na tabela `web_sales_iceberg` usando o comando `MERGE`. Copie a consulta abaixo no editor e clique em **Executar**
+11. Você aplica todas as alterações contidas dentro da `merge_table` na tabela `web_sales_iceberg` usando o comando `MERGE`. Copie a consulta abaixo no editor e clique em **Executar**
+
+**Explicação da sintaxe MERGE**:
+- **MERGE INTO**: Especifica a tabela de destino
+- **USING**: Define a tabela de origem (source)
+- **ON**: Condição de junção para identificar registros correspondentes
+- **WHEN MATCHED**: Ações para registros que existem em ambas as tabelas
+- **WHEN NOT MATCHED**: Ações para registros que existem apenas na tabela de origem
+
+**Lógica condicional**: O comando utiliza a coluna `operation` para determinar qual ação executar, permitindo processar diferentes tipos de mudanças em uma única operação.
 
 ``` sql
 MERGE INTO athena_iceberg_db.web_sales_iceberg t
@@ -199,7 +288,7 @@ WHEN NOT MATCHED THEN INSERT (ws_order_number, ws_item_sk, ws_quantity, ws_sales
 
 ---
 
-9. Consulte a tabela para confirmar se a operação de mesclagem funcionou corretamente.
+12. Consulte a tabela para confirmar se a operação de mesclagem funcionou corretamente.
 
 * Agora você pode validar se tem dados para o ano de 2001 (as inserções estão aplicadas corretamente)
 
@@ -236,12 +325,39 @@ Você pode consultar a tabela `snapshots` e ver um novo snapshot com o valor `op
 
 ## Otimizando tabelas Iceberg
 
-À medida que os dados se acumulam em uma tabela Iceberg, as consultas gradualmente se tornam menos eficientes devido ao aumento do tempo de processamento necessário para abrir arquivos. Custo computacional adicional é incorrido se a tabela contiver arquivos de exclusão. No Iceberg, os arquivos de exclusão armazenam exclusões de nível de linha, e o mecanismo deve aplicar as linhas excluídas aos resultados da consulta. Para ajudar a otimizar o desempenho das consultas em tabelas Iceberg, o Athena oferece suporte à compactação manual como um comando de manutenção de tabela. As compactações otimizam o layout estrutural da tabela sem alterar o conteúdo da tabela. Para fazer isso, você pode usar a consulta [OPTIMIZE](https://docs.aws.amazon.com/athena/latest/ug/optimize-statement.html) do Athena que faz o seguinte:
+### Manutenção e Performance de Tabelas
+
+À medida que os dados se acumulam em uma tabela Iceberg, as consultas gradualmente se tornam menos eficientes devido ao aumento do tempo de processamento necessário para abrir arquivos. Custo computacional adicional é incorrido se a tabela contiver arquivos de exclusão.
+
+**Problemas de performance comuns**:
+- **Fragmentação de arquivos**: Muitos arquivos pequenos aumentam overhead de I/O
+- **Arquivos de exclusão**: Delete files precisam ser processados durante leitura
+- **Metadata overhead**: Muitos manifests impactam tempo de planejamento de consultas
+- **Distribuição desigual**: Partições com tamanhos muito diferentes
+
+**Estratégias de otimização**:
+
+| Problema | Solução | Comando |
+|----------|---------|---------|
+| Arquivos pequenos | Compactação | `OPTIMIZE ... REWRITE DATA` |
+| Delete files | Merge com dados | `OPTIMIZE ... REWRITE DATA` |
+| Metadata fragmentado | Reorganização | Operações de manutenção |
+| Partições desbalanceadas | Reparticionamento | Ajuste de estratégia |
+
+**Quando executar otimização**:
+- Após muitas operações de UPDATE/DELETE
+- Quando consultas ficam lentas
+- Periodicamente como manutenção preventiva
+- Após cargas de dados incrementais
+
+Para detalhes sobre otimização, consulte a [documentação de manutenção do Iceberg](https://docs.aws.amazon.com/athena/latest/ug/optimize-statement.html) e as [melhores práticas de performance](https://docs.aws.amazon.com/prescriptive-guidance/latest/apache-iceberg-on-aws/best-practices-performance.html).
+
+No Iceberg, os arquivos de exclusão armazenam exclusões de nível de linha, e o mecanismo deve aplicar as linhas excluídas aos resultados da consulta. Para ajudar a otimizar o desempenho das consultas em tabelas Iceberg, o Athena oferece suporte à compactação manual como um comando de manutenção de tabela. As compactações otimizam o layout estrutural da tabela sem alterar o conteúdo da tabela. Para fazer isso, você pode usar a consulta [OPTIMIZE](https://docs.aws.amazon.com/athena/latest/ug/optimize-statement.html) do Athena que faz o seguinte:
 
 * compactar arquivos pequenos em maiores (reduzir a quantidade de arquivos a serem abertos durante a leitura)
 * mesclar arquivos de exclusão de posição com arquivos de dados (evitar ter que aplicar exclusões de posição ao consultar)
 
-10.  Observe os arquivos de dados do iceberg da tabela antes de começar a otimizá-la.
+13. Observe os arquivos de dados do iceberg da tabela antes de começar a otimizá-la.
 
 ``` sql
 SELECT * FROM "athena_iceberg_db"."web_sales_iceberg$files";
@@ -251,7 +367,7 @@ SELECT * FROM "athena_iceberg_db"."web_sales_iceberg$files";
 
 Observe o nome do arquivo e a contagem de registros para cada partição
 
-11. Você OTIMIZARÁ a tabela inteira. Copie a consulta abaixo no editor de consultas e clique em **Executar**
+14. Você OTIMIZARÁ a tabela inteira. Copie a consulta abaixo no editor de consultas e clique em **Executar**
 
 ``` sql
 OPTIMIZE athena_iceberg_db.web_sales_iceberg REWRITE DATA USING BIN_PACK;
@@ -259,7 +375,7 @@ OPTIMIZE athena_iceberg_db.web_sales_iceberg REWRITE DATA USING BIN_PACK;
 
 Os resultados da consulta devem conter a mensagem "Consulta bem-sucedida".
 
-12. Agora execute novamente o comando para listar os arquivos da Tabela Iceberg.
+15. Agora execute novamente o comando para listar os arquivos da Tabela Iceberg.
 
 ``` sql
 SELECT * FROM "athena_iceberg_db"."web_sales_iceberg$files";
@@ -267,13 +383,13 @@ SELECT * FROM "athena_iceberg_db"."web_sales_iceberg$files";
 
 ![Create-iceberg-table](img/file_list_after_compression.png)
 
-Compare as capturas de tela da etapa 10 e da etapa 12. Observe que o número total de arquivos mudou de 5 para 4 arquivos.
+Compare as capturas de tela da etapa 13 e da etapa 15. Observe que o número total de arquivos mudou de 5 para 4 arquivos.
 
 Com o comando `OPTIMIZE` isso aconteceu:
 
 * Partição `ws_sales_time_year=1998`: os arquivos permanecem inalterados, pois você não altera a partição.
-* Partição `ws_sales_time_year=1999`: a contagem de registros é reduzida porque o comando `Merge` exclui registros (etapa 6\.3\).
-* Partição `ws_sales_time_year=2000`: compacta 2 arquivos em um porque o comando `Merge` atualizou os registros (etapa 6\.1\). Os arquivos de dados são mesclados com os arquivos de exclusão de posição.
+* Partição `ws_sales_time_year=1999`: a contagem de registros é reduzida porque o comando `Merge` exclui registros (etapa 9).
+* Partição `ws_sales_time_year=2000`: compacta 2 arquivos em um porque o comando `Merge` atualizou os registros (etapa 7). Os arquivos de dados são mesclados com os arquivos de exclusão de posição.
 * Partições `ws_sales_time_year=2001`: os arquivos permanecem inalterados, pois você insere apenas registros dentro da partição
 
 Você pode consultar a tabela `snapshots` e verá um novo snapshot com o valor `operation` como `replace`
